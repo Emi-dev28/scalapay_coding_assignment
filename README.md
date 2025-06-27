@@ -1,6 +1,6 @@
 # Coding Challenge Scalapay
 
-RESTful API built with NestJS for e-commerce product management, following the directives of the coding assignment.
+RESTful API built with NestJS for e-commerce product management, implementing the requirements specified in the coding assignment.
 
 ## Prerequisites
 
