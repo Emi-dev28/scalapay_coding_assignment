@@ -1,0 +1,743 @@
+openapi: 3.1.0
+info:
+  title: Products Microservice API
+  description: |
+    REST API for product inventory management with CRUD operations, pagination, and robust error handling.
+    This microservice handles all product-related operations including creation, retrieval, updates, and deletion of products in the inventory system.
+
+    ## Features
+    - Full CRUD operations for products
+    - Pagination support for listing products
+    - Comprehensive error handling with Sequelize integration
+    - Input validation and sanitization using class-validator
+    - Real-time inventory management
+    - Unique product token constraint enforcement
+
+    ## Authentication
+    Currently no authentication is required for this API.
+
+    
+  version: 1.0.0
+  contact:
+    name: Emiliano
+    email: emilianocellilli00@gmail.com
+
+servers:
+  - url: http://localhost:3000
+    description: Development server
+  
+paths:
+  /products:
+    get:
+      tags:
+        - Products
+      summary: Retrieve all products with pagination
+      description: |
+        Retrieves a paginated list of all products from the inventory system. 
+        This endpoint supports multiple pagination strategies and excludes timestamps for cleaner responses.
+
+        ## Pagination Options
+        - **Page-based**: Use `page` parameter with optional `limit`
+        - **Offset-based**: Use `offset` and `limit` for precise control
+        - **Default behavior**: Returns first 10 items if no parameters provided
+
+        ## Response Format
+        Returns products without `createdAt` and `updatedAt` fields for optimized payload size.
+        Includes comprehensive pagination metadata for easy client-side implementation.
+
+      operationId: getAllProducts
+      parameters:
+        - name: limit
+          in: query
+          description: Maximum number of products to return per page
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+          example: 10
+        - name: offset
+          in: query
+          description: Number of products to skip (for offset-based pagination)
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+          example: 0
+        - name: page
+          in: query
+          description: Page number for page-based pagination (1-indexed)
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          example: 1
+      responses:
+        "200":
+          description: Products successfully retrieved with pagination metadata
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - pageNumber
+                  - pageSize
+                  - pageCount
+                  - itemsCount
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ProductResponse"
+                  pageNumber:
+                    type: integer
+                    description: Current page number
+                    example: 1
+                  pageSize:
+                    type: integer
+                    description: Number of items per page
+                    example: 10
+                  pageCount:
+                    type: integer
+                    description: Total number of pages
+                    example: 10
+                  itemsCount:
+                    type: integer
+                    description: Total number of items available
+                    example: 100
+              examples:
+                successful_response:
+                  summary: Successful products retrieval
+                  value:
+                    data:
+                      - id: 1
+                        productToken: "PWH2024PRO"
+                        name: "Premium Wireless Noise-Cancelling Headphones"
+                        price: 299.99
+                        stock: 50
+                      - id: 2
+                        productToken: "DCT001"
+                        name: "Designer Cotton T-Shirt"
+                        price: 89.95
+                        stock: 120
+                    pageNumber: 1
+                    pageSize: 10
+                    pageCount: 10
+                    itemsCount: 100
+        "400":
+          description: Invalid query parameters provided
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErrorResponse"
+              examples:
+                invalid_parameters:
+                  summary: Invalid pagination parameters
+                  value:
+                    statusCode: 400
+                    message:
+                      - "Page must be an integer value."
+                      - "Page must be at least 1."
+                      - "Limit must be an integer value."
+                    error: "Bad Request"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InternalErrorResponse"
+
+    post:
+      tags:
+        - Products
+      summary: Create a new product
+      description: |
+        Creates a new product in the inventory system with comprehensive validation.
+        All fields are required and must pass validation rules.
+
+        ## Validation Rules
+        - **Name**: 2-100 characters, string type
+        - **Product Token**: Alphanumeric only, must be unique across the system
+        - **Price**: Positive decimal with up to 2 decimal places, minimum 0.01
+        - **Stock**: Positive integer representing initial inventory
+
+        ## Business Rules
+        - Product tokens must be globally unique (enforced by database constraint)
+        - Price is stored as DECIMAL(10,2) for precise monetary calculations
+        - Stock represents the initial available quantity for sale
+        - Product receives auto-generated ID and timestamps upon creation
+
+      operationId: createProduct
+      requestBody:
+        description: Product information required for creation
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateProductRequest"
+            examples:
+              electronics_example:
+                summary: Premium electronic device
+                description: Example of creating a high-end electronic product
+                value:
+                  name: "Premium Wireless Noise-Cancelling Headphones"
+                  productToken: "PWH2024PRO"
+                  price: 299.99
+                  stock: 50
+              fashion_example:
+                summary: Fashion item
+                description: Example of creating a fashion product
+                value:
+                  name: "Designer Cotton T-Shirt"
+                  productToken: "DCT001"
+                  price: 89.95
+                  stock: 120
+              appliance_example:
+                summary: Home appliance
+                description: Example of creating a home appliance
+                value:
+                  name: "Smart Coffee Maker Pro"
+                  productToken: "SCMP2024"
+                  price: 199.99
+                  stock: 25
+      responses:
+        "201":
+          description: Product successfully created and added to inventory
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+              examples:
+                created_product:
+                  summary: Successfully created product
+                  value:
+                    id: 1
+                    productToken: "PWH2024PRO"
+                    name: "Premium Wireless Noise-Cancelling Headphones"
+                    price: 299.99
+                    stock: 50
+                    createdAt: "2024-01-15T10:30:00Z"
+                    updatedAt: "2024-01-15T10:30:00Z"
+        "400":
+          description: Validation errors in request payload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErrorResponse"
+              examples:
+                validation_errors:
+                  summary: Multiple validation errors
+                  value:
+                    statusCode: 400
+                    message:
+                      - "Name must be longer than or equal to 2 characters"
+                      - "Price should be a positive number with up to 2 decimal places"
+                      - "Product Token should be composed only of alphanumerical characters"
+                    error: "Bad Request"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InternalErrorResponse"
+
+  /products/stock:
+    patch:
+      tags:
+        - Products
+      summary: Update product stock quantity
+      description: |
+        Updates the inventory stock level for a specific product identified by its unique ID in the request body.
+        This operation is essential for inventory management and real-time stock tracking.
+
+        ## Important Notes
+        - Product ID and new stock quantity are both required in request body
+        - Stock can be set to 0 (out of stock) but cannot be negative
+        - Returns success confirmation rather than updated product data
+        - Returns 404 error if product with specified ID doesn't exist
+
+
+      operationId: updateProductStock
+      requestBody:
+        description: Product ID and new stock quantity
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProductStockRequest"
+            examples:
+              restock_example:
+                summary: Increase stock after shipment
+                description: Restocking after receiving new inventory
+                value:
+                  productId: 1
+                  stock: 75
+              adjustment_example:
+                summary: Adjust stock after audit
+                description: Correcting stock based on physical count
+                value:
+                  productId: 2
+                  stock: 25
+              out_of_stock_example:
+                summary: Mark as out of stock
+                description: Setting stock to zero when sold out
+                value:
+                  productId: 3
+                  stock: 0
+      responses:
+        "200":
+          description: Product stock successfully updated
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                properties:
+                  success:
+                    type: boolean
+                    description: Indicates whether the update operation was successful
+                    example: true
+              examples:
+                successful_update:
+                  summary: Stock update confirmation
+                  value:
+                    success: true
+        "400":
+          description: Invalid request data or validation errors
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErrorResponse"
+              examples:
+                validation_errors:
+                  summary: Invalid stock or product ID
+                  value:
+                    statusCode: 400
+                    message:
+                      - "Stock should be a positive number"
+                      - "ProductId should exist"
+                    error: "Bad Request"
+        "404":
+          description: Product not found with the specified ID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotFoundErrorResponse"
+              examples:
+                product_not_found:
+                  summary: Product ID not found
+                  value:
+                    error: "Product with ID 999 not found"
+                    timestamp: "2024-01-15T10:30:00.000Z"
+                    path: "/products/stock"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InternalErrorResponse"
+
+  /products/{id}:
+    delete:
+      tags:
+        - Products
+      summary: Delete a product by ID
+      description: |
+        Permanently removes a product from the inventory system using its unique identifier.
+        This operation is irreversible and should be used with caution.
+
+        ## Important Considerations
+        - This operation permanently deletes the product record
+        - Cannot be undone once executed successfully
+        - Returns success confirmation rather than deleted product data
+        - Consider implementing soft deletion for production environments
+
+        ## Prerequisites
+        - Product must exist in the system (valid ID required)
+        - Product should not have active dependencies (orders, references, etc.)
+        - Appropriate permissions required (when authentication is implemented)
+
+      operationId: deleteProduct
+      parameters:
+        - name: id
+          in: path
+          description: Unique identifier of the product to be deleted
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+          example: 1
+      responses:
+        "200":
+          description: Product successfully deleted from inventory
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                properties:
+                  success:
+                    type: boolean
+                    description: Indicates whether the deletion was successful
+                    example: true
+              examples:
+                successful_deletion:
+                  summary: Product deletion confirmation
+                  value:
+                    success: true
+        "400":
+          description: Invalid product ID format or parameter validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErrorResponse"
+              examples:
+                invalid_id:
+                  summary: Invalid product ID format
+                  value:
+                    statusCode: 400
+                    message: ["Product ID must be a valid positive integer"]
+                    error: "Bad Request"
+        "404":
+          description: Product not found with the specified ID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotFoundErrorResponse"
+              examples:
+                product_not_found:
+                  summary: Product not found
+                  value:
+                    error: "Product with ID 999 not found"
+                    timestamp: "2024-01-15T10:30:00.000Z"
+                    path: "/products/999"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InternalErrorResponse"
+
+components:
+  schemas:
+    Product:
+      type: object
+      description: Complete product entity with all properties including timestamps
+      required:
+        - id
+        - productToken
+        - name
+        - price
+        - stock
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: integer
+          description: Unique auto-generated identifier for the product (primary key)
+          example: 1
+          readOnly: true
+        productToken:
+          type: string
+          description: |
+            Unique alphanumeric identifier token for the product. 
+            Used for internal tracking, API integration, and business logic.
+            Must be globally unique across the entire product catalog.
+          pattern: "^[a-zA-Z0-9]+$"
+          minLength: 1
+          maxLength: 255
+          example: "PWH2024PRO"
+        name:
+          type: string
+          description: |
+            Human-readable display name of the product. 
+            Should be descriptive and meaningful for customers and internal users.
+          minLength: 2
+          maxLength: 100
+          example: "Premium Wireless Noise-Cancelling Headphones"
+        price:
+          type: number
+          format: decimal
+          description: |
+            Product retail price stored as decimal with up to 2 decimal places.
+            Stored as DECIMAL(10,2) in database for precise monetary calculations.
+          minimum: 0.01
+          multipleOf: 0.01
+          example: 299.99
+        stock:
+          type: integer
+          description: |
+            Current inventory stock quantity representing available units for sale.
+            Can be 0 (out of stock) but cannot be negative.
+          minimum: 0
+          example: 50
+        createdAt:
+          type: string
+          format: date-time
+          description: ISO 8601 timestamp when the product was created (auto-generated by Sequelize)
+          example: "2024-01-15T10:30:00Z"
+          readOnly: true
+        updatedAt:
+          type: string
+          format: date-time
+          description: ISO 8601 timestamp when the product was last updated (auto-maintained by Sequelize)
+          example: "2024-01-15T10:30:00Z"
+          readOnly: true
+
+    ProductResponse:
+      type: object
+      description: Product entity without timestamps (used in list responses for optimized payload)
+      required:
+        - id
+        - productToken
+        - name
+        - price
+        - stock
+      properties:
+        id:
+          type: integer
+          description: Unique auto-generated identifier for the product
+          example: 1
+        productToken:
+          type: string
+          description: Unique alphanumeric identifier token for the product
+          example: "PWH2024PRO"
+        name:
+          type: string
+          description: Human-readable display name of the product
+          example: "Premium Wireless Noise-Cancelling Headphones"
+        price:
+          type: number
+          format: decimal
+          description: Product retail price as decimal
+          example: 299.99
+        stock:
+          type: integer
+          description: Current inventory stock quantity
+          example: 50
+
+    CreateProductRequest:
+      type: object
+      description: Request payload for creating a new product with validation constraints
+      required:
+        - name
+        - productToken
+        - price
+        - stock
+      properties:
+        name:
+          type: string
+          description: |
+            Display name of the product. Must be between 2-100 characters.
+            Validated using class-validator with custom error messages.
+          minLength: 2
+          maxLength: 100
+          example: "Premium Wireless Noise-Cancelling Headphones"
+        productToken:
+          type: string
+          description: |
+            Unique alphanumeric identifier for the product.
+            Must contain only letters and numbers, no special characters.
+            Uniqueness enforced at database level.
+          pattern: "^[a-zA-Z0-9]+$"
+          minLength: 1
+          example: "PWH2024PRO"
+        price:
+          type: number
+          format: decimal
+          description: |
+            Product price with automatic decimal parsing.
+            Must be positive with maximum 2 decimal places.
+            Transformed using class-transformer parseFloat.
+          minimum: 0.01
+          multipleOf: 0.01
+          example: 299.99
+        stock:
+          type: integer
+          description: |
+            Initial inventory stock quantity.
+            Must be a positive integer representing available units.
+          minimum: 1
+          example: 50
+
+    UpdateProductStockRequest:
+      type: object
+      description: Request payload for updating product stock with product identification
+      required:
+        - productId
+        - stock
+      properties:
+        productId:
+          type: integer
+          description: |
+            Unique identifier of the product to update.
+            Must be a positive integer corresponding to an existing product.
+          minimum: 1
+          example: 1
+        stock:
+          type: integer
+          description: |
+            New stock quantity for the product.
+            Must be non-negative (0 allowed for out-of-stock items).
+          minimum: 0
+          example: 75
+
+    ValidationErrorResponse:
+      type: object
+      description: Standard validation error response for bad request scenarios
+      required:
+        - message
+        - error
+      properties:
+        message:
+          type: array
+          items:
+            type: string
+          description: Array of specific validation error messages from class-validator
+          example: 
+            - "Name must be longer than or equal to 2 characters"
+            - "Price should be a positive number with up to 2 decimal places"
+        error:
+          type: string
+          description: General error type description
+          example: "Bad Request"
+
+    ConflictErrorResponse:
+      type: object
+      description: Error response for unique constraint violations (HTTP 409)
+      required:
+        - message
+        - errors
+        - timestamp
+      properties:
+        message:
+          type: string
+          description: General conflict error message
+          example: "Resource already exists"
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+                description: Database field that caused the conflict
+              message:
+                type: string
+                description: Specific constraint violation message
+          example:
+            - field: "productToken"
+              message: "productToken must be unique"
+        timestamp:
+          type: string
+          format: date-time
+          description: ISO 8601 timestamp when the error occurred
+          example: "2024-01-15T10:30:00.000Z"
+
+    NotFoundErrorResponse:
+      type: object
+      description: Error response for resource not found scenarios (HTTP 404)
+      required:
+        - error
+        - timestamp
+        - path
+      properties:
+        error:
+          type: string
+          description: Specific not found error message
+          example: "Product with ID 999 not found"
+        timestamp:
+          type: string
+          format: date-time
+          description: ISO 8601 timestamp when the error occurred
+          example: "2024-01-15T10:30:00.000Z"
+        path:
+          type: string
+          description: Request path that caused the error
+          example: "/products/999"
+
+    InternalErrorResponse:
+      type: object
+      description: Error response for internal server errors (HTTP 500)
+      required:
+        - statusCode
+        - message
+        - timestamp
+        - path
+      properties:
+        statusCode:
+          type: integer
+          description: HTTP status code (always 500 for internal errors)
+          example: 500
+        message:
+          type: string
+          description: General internal error message
+          example: "Internal server error"
+        timestamp:
+          type: string
+          format: date-time
+          description: ISO 8601 timestamp when the error occurred
+          example: "2024-01-15T10:30:00.000Z"
+        path:
+          type: string
+          description: Request path that caused the error
+          example: "/products"
+
+    DatabaseErrorResponse:
+      type: object
+      description: Error response for database connection issues (HTTP 503)
+      required:
+        - message
+        - timestamp
+      properties:
+        message:
+          type: string
+          description: Database connection error message
+          example: "Database connection failed"
+        timestamp:
+          type: string
+          format: date-time
+          description: ISO 8601 timestamp when the error occurred
+          example: "2024-01-15T10:30:00.000Z"
+
+tags:
+  - name: Products
+    description: |
+      Comprehensive product inventory management operations.
+
+      This module provides full CRUD functionality for product management including:
+      
+      **Core Operations:**
+      - **Create Product**
+      - An endpoint that allows adding a new product to the database. The endpoint should accept product details (name, productToken, price, stock) through the request body.
+      - **Read Products:**
+      - A pagination-enabled endpoint that retrieves a list of all products from the database.
+      - **Update Product:**
+      An endpoint to update the stock quantity of a specific product. The endpoint should
+      accept the product ID and the new stock quantity through the request body.
+      - **Delete Product:** An endpoint to delete a product from the database based on its ID
+      
+      **Key Features:**
+      - Sequelize ORM integration with automatic timestamps
+      - Class-validator based input validation with custom error messages
+      - Unique constraint enforcement on product tokens
+      - Flexible pagination (page-based and offset-based)
+      - Error handling for all scenarios
+      - Optimized response payloads (timestamps excluded in list views)
+
+      **Technical Implementation:**
+      - Built with NestJS framework and TypeScript
+      - Uses Sequelize with MySQL support
+      - Uses Sequelize with SQlite for testing purposes
+      - Implements custom exception filters for error standardization
+      - Follows RESTful API design principles
+
+externalDocs:
+  description: Additional API documentation and integration guides
+  url: https://docs.company.com/api/products
