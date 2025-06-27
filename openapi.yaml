@@ -1,17 +1,15 @@
 openapi: 3.1.0
 info:
-  title: Products Microservice API
+  title: Products API
   description: |
-    REST API for product inventory management with CRUD operations, pagination, and robust error handling.
-    This microservice handles all product-related operations including creation, retrieval, updates, and deletion of products in the inventory system.
+    REST API for product inventory management with CRUD operations, pagination, and error handling.
+    This app handles product-related operations including creation, retrieval, updates, and deletion of products in the DB.
 
     ## Features
     - Full CRUD operations for products
     - Pagination support for listing products
-    - Comprehensive error handling with Sequelize integration
+    - Error handling with Sequelize integration
     - Input validation and sanitization using class-validator
-    - Real-time inventory management
-    - Unique product token constraint enforcement
 
     ## Authentication
     Currently no authentication is required for this API.
@@ -710,34 +708,25 @@ tags:
   - name: Products
     description: |
       Comprehensive product inventory management operations.
-
+      
       This module provides full CRUD functionality for product management including:
       
       **Core Operations:**
-      - **Create Product**
-      - An endpoint that allows adding a new product to the database. The endpoint should accept product details (name, productToken, price, stock) through the request body.
-      - **Read Products:**
-      - A pagination-enabled endpoint that retrieves a list of all products from the database.
-      - **Update Product:**
-      An endpoint to update the stock quantity of a specific product. The endpoint should
-      accept the product ID and the new stock quantity through the request body.
-      - **Delete Product:** An endpoint to delete a product from the database based on its ID
+      - **Create Product** - An endpoint that allows adding a new product to the database. The endpoint should accept product details (name, productToken, price, stock) through the request body.
+      - **Read Products** - A pagination-enabled endpoint that retrieves a list of all products from the database.
+      - **Update Product** - An endpoint to update the stock quantity of a specific product. The endpoint should accept the product ID and the new stock quantity through the request body.
+      - **Delete Product** - An endpoint to delete a product from the database based on its ID
       
       **Key Features:**
-      - Sequelize ORM integration with automatic timestamps
+      - Sequelize ORM integration
       - Class-validator based input validation with custom error messages
-      - Unique constraint enforcement on product tokens
+      - Unique constraint on product tokens
       - Flexible pagination (page-based and offset-based)
       - Error handling for all scenarios
-      - Optimized response payloads (timestamps excluded in list views)
-
+      
       **Technical Implementation:**
       - Built with NestJS framework and TypeScript
       - Uses Sequelize with MySQL support
-      - Uses Sequelize with SQlite for testing purposes
+      - Uses Sequelize with SQLite for testing purposes
       - Implements custom exception filters for error standardization
       - Follows RESTful API design principles
-
-externalDocs:
-  description: Additional API documentation and integration guides
-  url: https://docs.company.com/api/products

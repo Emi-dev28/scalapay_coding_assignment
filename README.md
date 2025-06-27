@@ -87,3 +87,13 @@ The coverage report will be generated in the `./coverage` folder. You can view t
 - Ensure port 3000 is available before running the application
 - Port 3306 must be available for the MySQL database
 - Database data is persisted in the `./mysql-data` volume
+- Architecture Decision: The specification mentions implementing a microservice in item 2, but the current implementation follows a monolithic REST API approach, which better fits the requirements. If microservice architecture is preferred, this can be easily modified in `main.ts`: 
+```
+app.connectMicroservice({
+    transport: WebTransport.TCP // or NATS, etc
+    options: {
+      host: <HOST>,
+      port: <port>
+    }
+```
+This would require installing `@nestjs/microservices` package
